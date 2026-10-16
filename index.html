@@ -236,6 +236,8 @@ input,textarea{font:inherit;color:inherit}
 .cover{position:fixed;inset:0;background:linear-gradient(160deg,#ffe3f1,#f0e6ff);z-index:9998}
 body.locked #app{visibility:hidden}
 
+.vspd{flex:none;min-width:42px;height:30px;padding:0 9px;border-radius:999px;background:var(--pk3);color:var(--pk);font-weight:800;font-size:13px}
+
 </style></head>
 <body><div id="app"></div><div id="lock" class="lock hide"></div><div id="cover" class="cover hide"></div>
 <script>
@@ -627,9 +629,10 @@ function dMoods(){const m=E.root.querySelector('#moods');m.innerHTML=MOODS.map((
 
 /* ---- voice ---- */
 let AU=null;
+const SPEEDS=[1,1.5,2,2.5];const spdTxt=()=>(SET.vspd||1)+'×';
 function stopPlay(){if(AU){AU.el.pause();AU=null;$$('.vp').forEach(b=>b.innerHTML=ICON.play)}}
 function dVoices(){if(!E||!E.dia)return;const d=E.doc;const box=E.root.querySelector('#vsec');
- box.innerHTML=`<div id="vlist">${(d.voices||[]).map((x,i)=>`<div class="vr" data-i="${i}"><button class="vp" data-a="vplay" data-i="${i}" aria-label="Слушать">${ICON.play}</button><div class="vb"><input type="range" class="vs" min="0" max="${Math.max(1,Math.round(x.dur*10))}" value="0" data-i="${i}"><small>${midDate(x.ts)}, ${hhmm(x.ts)} · <span class="vt">${mmss(x.dur)}</span></small></div><button class="vx" data-a="vdel" data-i="${i}" aria-label="Удалить запись">${ICON.trash}</button></div>`).join('')}</div>
+ box.innerHTML=`<div id="vlist">${(d.voices||[]).map((x,i)=>`<div class="vr" data-i="${i}"><button class="vp" data-a="vplay" data-i="${i}" aria-label="Слушать">${ICON.play}</button><div class="vb"><input type="range" class="vs" min="0" max="${Math.max(1,Math.round(x.dur*10))}" value="0" data-i="${i}"><small>${midDate(x.ts)}, ${hhmm(x.ts)} · <span class="vt">${mmss(x.dur)}</span></small></div><button class="vspd" data-a="vspd" aria-label="Скорость">${spdTxt()}</button><button class="vx" data-a="vdel" data-i="${i}" aria-label="Удалить запись">${ICON.trash}</button></div>`).join('')}</div>
  <button class="rec" id="recb" data-a="rec">${ICON.mic}<span>Записать голос</span></button>`;
  (d.voices||[]).forEach(x=>bUrl(x.id));recUI();
  $$('.vs',box).forEach(s=>{s.oninput=()=>{if(AU&&AU.i===+s.dataset.i)AU.el.currentTime=s.value/10}})}
@@ -649,8 +652,8 @@ async function stopRec(){const e=E;const R=e&&e.rec;if(!R)return;clearInterval(R
 async function playVoice(i){const x=E.doc.voices[i];if(!x)return;
  if(AU&&AU.i===i){if(AU.el.paused){AU.el.play()}else AU.el.pause();return}
  stopPlay();let u=BU.get(x.id)||await bUrl(x.id);if(!u){toast('Не нашла запись');return}
- const el=new Audio(u);const row=E.root.querySelector(`.vr[data-i="${i}"]`);const btn=row.querySelector('.vp'),sl=row.querySelector('.vs'),tt=row.querySelector('.vt');AU={el,i};
- el.onplay=()=>btn.innerHTML=ICON.pause;el.onpause=()=>btn.innerHTML=ICON.play;
+ const el=new Audio(u);el.playbackRate=SET.vspd||1;const row=E.root.querySelector(`.vr[data-i="${i}"]`);const btn=row.querySelector('.vp'),sl=row.querySelector('.vs'),tt=row.querySelector('.vt');AU={el,i};
+ el.onplay=()=>{btn.innerHTML=ICON.pause;el.playbackRate=SET.vspd||1};el.onpause=()=>btn.innerHTML=ICON.play;
  el.ontimeupdate=()=>{sl.value=el.currentTime*10;tt.textContent=mmss(el.currentTime)+' / '+mmss(x.dur)};
  el.onended=()=>{btn.innerHTML=ICON.play;sl.value=0;tt.textContent=mmss(x.dur);AU=null};
  try{await el.play()}catch(err){toast('Не получилось включить запись')}}
@@ -664,6 +667,7 @@ function dClick(a,b,e){
  if(a==='sugp'){E.ttl.value=b.dataset.v;autoGrow(E.ttl);sched();dSug();return true}
  if(a==='sugr'){SUGO+=4;dSug();return true}
  if(a==='rec'){if(E.rec)stopRec();else startRec();return true}
+ if(a==='vspd'){const i=SPEEDS.indexOf(SET.vspd||1);SET.vspd=SPEEDS[(i+1)%SPEEDS.length];saveSet();$$('.vspd',E.root).forEach(x=>x.textContent=spdTxt());if(AU)AU.el.playbackRate=SET.vspd;return true}
  if(a==='vplay'){playVoice(+b.dataset.i);return true}
  if(a==='vdel'){const i=+b.dataset.i;ask('Удалить эту голосовую запись?').then(async ok=>{if(!ok||!E)return;stopPlay();const x=E.doc.voices.splice(i,1)[0];await delBlob(x.id);await flush();dVoices()});return true}
  return false}
